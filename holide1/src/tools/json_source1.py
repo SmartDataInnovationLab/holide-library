@@ -30,13 +30,13 @@ def get_json():
 
 
   def get_data(table):
-    url='https://www.mehr-schulferien.de/api/v1.0/' + table
+    url='https://www.mehr-schulferien.de/api/v2.0/' + table
 
     data = w_cache.get_json(url)['data']
     return data
 
   def get_federal_state_id_by_name(name):
-    data = get_data('federal_states')
+    data = get_data('locations')
     return dictionarylisttools.get_first_where(data, {'name': name})['id']
 
 
@@ -46,7 +46,7 @@ def get_json():
       dictionary = {"id" : id, "name" : name}
       result.append(dictionary)
 
-    data = get_data('countries')
+    data = get_data('locations')
     for dataline in data:
       add_country(dataline['id'], dataline['name'])
 
@@ -54,20 +54,21 @@ def get_json():
 
 
   def get_federal_states():
-    result = []
-
-    iso_3166_2 = get_iso_3166_2()
-    def add_federal_state(id, name, country_id, iso3166_2):
-      dictionary = {"id" : id, "name" : name, "country_id" : country_id, "iso3166_2" : iso3166_2}
-      result.append(dictionary)
-
-    data = get_data('federal_states')
-    for dataline in data:
-      iso = iso_3166_2[dataline['name']]
-      add_federal_state(dataline['id'], dataline['name'], dataline['country_id'], iso)
-
-    return result
-
+	  result = []
+	  iso_3166_2 = get_iso_3166_2()
+	  
+	  def add_federal_state(id, name, country_id, iso3166_2):
+		  dictionary = {"id" : id, "name" : name, "country_id" : country_id, "iso3166_2" : iso3166_2}
+		  result.append(dictionary)
+		  
+	  data = get_data('locations')
+	  for dataline in data:
+		  if dataline['parent_location_id'] != None:
+			  if dataline['code'] != None:
+				  iso = iso_3166_2[dataline['name']]
+				  add_federal_state(dataline['id'], dataline['name'], dataline['parent_location_id'], iso)
+			  
+	  return result
 
   def get_cities():
     result = []
@@ -90,14 +91,17 @@ def get_json():
 
   def get_periods():
     result = []
-    def add_period(start_on, ends_on, name, federal_state_id):
-      dictionary = {"starts_on" : start_on, "ends_on" : ends_on,
-          "name" : name, "federal_state_id" : federal_state_id}
+    def add_period(start_on, ends_on, state_name, location_id):
+      dictionary = {"starts_on" : start_on, "ends_on" : ends_on, "name" : state_name,
+                    "federal_state_id" : location_id}
       result.append(dictionary)
 
-    data = get_data('periods')
-    for dataline in data:
-      add_period(dataline['starts_on'], dataline['ends_on'], dataline['name'], dataline['federal_state_id'])
+    data_periods = get_data('periods')
+    data_locations = get_data('locations')
+    for dataline_periods in data_periods:
+        for dataline_locations in data_locations:
+            if dataline_periods['location_id'] == dataline_locations['parent_location_id']:
+                add_period(dataline_periods['starts_on'], dataline_periods['ends_on'], dataline_locations['name'], dataline_periods['location_id'])
 
     return result
 
@@ -121,11 +125,12 @@ def get_json():
     return result
 
 
-  data = {"countries" : get_countries(),
-    "federal_states" : get_federal_states(),
-    "cities" : get_cities(),
-    "periods" : get_periods(),
-    "holidays" : get_holidays()}
+  data = {"countries" : get_countries()
+  ,"federal_states" : get_federal_states()
+  ,"cities" : get_cities()
+  ,"periods" : get_periods()
+  ,"holidays" : get_holidays()
+  }
 
   return data
 
